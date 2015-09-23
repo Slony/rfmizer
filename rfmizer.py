@@ -11,7 +11,7 @@ Usage example:
   python rfmizer.py config.yaml
 """
 
-__author__ = 'aprikhodko@google.com (Alexander Prikhodko)'
+__author__ = 'lebani@google.com (Lado Lebanidze), aprikhodko@google.com (Alexander Prikhodko)'
 
 
 import argparse
