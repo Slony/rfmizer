@@ -1,0 +1,21 @@
+advertiser_key: company_name_here
+input_columns:
+  - order_date
+  - user_id
+  - order_value
+segments_count:
+  recency: 5  
+  frequency: 5  
+  monetary: 5  
+rfmizer:
+  look_back_period: 365 # earliest date for RFMizer (number of days)
+  output_columns:
+    user_id: ga:dimension1
+    recency: ga:dimension2
+    frequency: ga:dimension3
+    monetary: ga:dimension4
+predictor:
+  prediction_period: 182 # lookback window for RFMestimator (number of days)
+average_for_only_zero_orders: no # Consider users with only zero-valued orders as having average order value
+output_path: .
+log_path: .

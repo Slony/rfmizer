@@ -1,0 +1,385 @@
+#!/usr/bin/env python
+# -*- coding: UTF-8 -*-
+# Copyright 2012 Google Inc. All Rights Reserved.
+
+"""RFM segmentation and prediction tool.
+
+TODO: Detailed description.
+
+Usage example:
+
+  python rfmizer.py config.yaml
+"""
+
+__author__ = 'aprikhodko@google.com (Alexander Prikhodko)'
+
+
+import argparse
+import csv
+import datetime
+import itertools
+import logging
+from operator import mul
+import pprint
+import re
+import sys
+import yaml
+
+
+def load_config(filename):
+  """Reads configuration settings from YAML file and returns config dict.
+
+  Args:
+    filename: Name of configuration file.
+
+  Returns:
+    Dict with configuration settings values.
+  """
+  with open(filename, "r") as f:
+    conf = yaml.load(f)
+  logging.info("conf = %s" % pprint.pformat(conf))
+
+  return conf
+
+
+def parse_date(s):
+  """Parses date string from input CSV file.
+
+  Args:
+    s: date in string format.
+
+  Returns:
+    Date instance or None if string can't be parsed.
+  """
+  pattern = r'(\d{4})(\D)(\d\d)(\D)(\d\d)|(\d\d)(\D)(\d\d)(\D)(\d{4})'
+  match = re.search(pattern, s)
+  if not match:
+    return None
+  else:
+    groups = match.groups()
+  if groups[0] != None:
+    date_str = "%s-%s-%s" % (groups[0], groups[2], groups[4])
+  else:
+    date_str = "%s-%s-%s" % (groups[9], groups[7], groups[5])
+
+  return datetime.datetime.strptime(date_str, "%Y-%m-%d")
+
+
+def parse_value(s):
+  """Parses order value string from input CSV file.
+
+  Args:
+    s: order value in string format.
+
+  Returns:
+    Floating point number or None if string can't be parsed.
+  """
+  pattern = r'-?\d*[.,]?\d+'
+  match = re.search(pattern, s)
+  if not match:
+    return None
+  else:
+    value_str = match.group()
+
+  return float(value_str)
+
+
+class Rfmizer(object):
+  """Instances of this class implement the RFMizer functionality.
+  """
+  ORDER_COLUMNS = set(('user_id', 'order_date', 'order_value'))
+  RFM_DIMENSIONS = set(('recency', 'frequency', 'monetary'))
+
+
+  def __init__(self, conf):
+    """Initialises RFMizer with configuration settings and initial values.
+
+    Args:
+      conf: dict with config settings.
+    """
+    self.conf = conf
+    self.max_date = parse_date('2000-01-01')
+    self.look_back_delta = datetime.timedelta(
+        conf['rfmizer']['look_back_period'])
+    self.prediction_delta = datetime.timedelta(
+        conf['predictor']['prediction_period'])
+    self.borders = {}
+
+
+  def load_input(self, filename):
+    """Reads input data file line by line and fills users dict with data.
+
+    Args:
+      filename: name of the file with input data in CSV format.
+    """
+    self.users = {}
+    with open(filename, 'rb') as csv_file:
+      rows = csv.reader(csv_file)
+      for row in rows:
+        order = {}
+        dimensions = {}
+        for i, column in enumerate(self.conf['input_columns']):
+          if column in self.ORDER_COLUMNS:
+            order[column] = row[i]
+          else:
+            dimensions[column] = row[i]
+
+        order_date = parse_date(order['order_date'])
+        if not order_date:
+          continue
+        order_value = parse_value(order['order_value'])
+        user_id = order['user_id']
+
+        if user_id not in self.users:
+          self.users[user_id] = {'orders': {}, 'max_date': order_date,
+                                 'dimensions': dimensions}
+        if order_date not in self.users[user_id]['orders']:
+          self.users[user_id]['orders'][order_date] = None
+        if order_value:
+          if self.users[user_id]['orders'][order_date] == None:
+            self.users[user_id]['orders'][order_date] = order_value
+          else:
+            self.users[user_id]['orders'][order_date] += order_value
+        if order_date > self.users[user_id]['max_date']:
+          self.users[user_id]['max_date'] = order_date
+          self.users[user_id]['dimensions'] = dimensions
+        if order_date > self.max_date:
+          self.max_date = order_date
+
+    logging.info("max_date = %s" % self.max_date.strftime('%Y-%m-%d'))
+
+
+  def metricize(self, today):
+    """Fills users dict elements with calculated RFM values.
+
+    Args:
+      today: date considedred as today's date in calculations.
+    """
+    start = today - self.look_back_delta
+
+    logging.info('Metricizing between dates %s and %s' % (
+        start.strftime('%Y-%m-%d'), today.strftime('%Y-%m-%d')))
+
+    future_uids = []
+    for uid in self.users:
+      user = self.users[uid]
+      orders = []
+      max_date = parse_date('2000-01-01')
+      min_date = parse_date('2200-01-01')
+      for d in user['orders']:
+        if start <= d and d <= today:
+          orders.append(user['orders'][d])
+          if d > max_date:
+            max_date = d
+        if d < min_date:
+          min_date = d
+      orders_count = len(orders)
+      if orders_count == 0:
+        if min_date > today:
+          future_uids.append(uid)
+        else:
+          user['metrics'] = {'recency': 'stale', 'frequency': 'stale',
+                             'monetary': 'stale'}
+        continue
+      non_zero_orders = [o for o in orders if o != None]
+      non_zero_orders_count = len(non_zero_orders)
+      non_zero_orders_sum = sum(non_zero_orders)
+      if non_zero_orders_count > 0:
+        average_order = non_zero_orders_sum / non_zero_orders_count
+      else:
+        average_order = None
+      days_passed = (max_date - today).days
+      user['metrics'] = {'recency': days_passed, 'frequency': orders_count,
+                          'monetary': average_order}
+    for uid in future_uids:
+      del self.users[uid]
+
+
+  def segmentize(self, dimension):
+    """Divide users to segments of a given RFM dimension.
+
+    Args:
+      dimension: recency, frequency or monetary.
+    """
+    by_borders = dimension in self.borders
+    if by_borders:
+      segments_count = len(self.borders[dimension]) + 1
+    else:
+      self.borders[dimension] = {}
+      segments_count = self.conf['segments_count'][dimension]
+    uids = []
+    for uid in self.users:
+      user = self.users[uid]
+      if user['metrics'][dimension] == None:
+        user['dimensions'][dimension] = 1
+      elif user['metrics'][dimension] == 'stale':
+        user['dimensions'][dimension] = 0
+      else:
+        uids.append(uid)
+    uids.sort(cmp=lambda u1, u2:cmp(self.users[u1]['metrics'][dimension],
+                                    self.users[u2]['metrics'][dimension]))
+    segment = 1
+    uids_count = len(uids)
+    if not by_borders:
+      max_i = uids_count / segments_count
+      current_metric = self.users[uids[0]]['metrics'][dimension]
+    for i in xrange(0, uids_count):
+      user = self.users[uids[i]]
+      metric = user['metrics'][dimension]
+      if by_borders:
+        if segment < segments_count:
+          if metric >= self.borders[dimension][segment]:
+            segment += 1
+      else:
+        if i >= max_i and metric != current_metric:
+          self.borders[dimension][segment] = metric
+          segment += 1
+          max_i = i + (uids_count - i) / (segments_count - segment + 1)
+          current_metric = metric
+      user['dimensions'][dimension] = segment
+
+
+  def rfmize(self, today=None):
+    """Fills users dict with RFM segments calculated for a given today.
+
+    Args:
+      today: date of today used in calculations. If no today's date given, then
+          this method uses maximum date found in an input file.
+    """
+    if not today:
+      today = self.max_date
+
+    logging.info('Rfmizing with today = %s' % today.strftime('%Y-%m-%d'))
+
+    self.metricize(today)
+    for dimension in self.RFM_DIMENSIONS:
+      self.segmentize(dimension)
+
+
+  def save_mapping(self):
+    columns = self.conf['rfmizer']['output_columns']
+    filename = self.conf['output_path'] + '/'
+    filename += self.conf['advertiser_key'] + '_mapping.csv'
+    with open(filename, 'wb') as f:
+      writer = csv.writer(f)
+      dimensions = sorted(self.users.itervalues().next()['dimensions'].keys())
+      head = [columns['user_id']] + [columns[d] for d in dimensions]
+      writer.writerow(head)
+      for uid in self.users:
+        user = self.users[uid]
+        segments = [ds[1] for ds in sorted(user['dimensions'].iteritems())]
+        writer.writerow([uid] + segments)
+
+
+  def rationize(self):
+    prediction_date = self.max_date - self.prediction_delta
+    self.rfmize(prediction_date)
+
+    dimensions = self.users.itervalues().next()['dimensions']
+    segments = {}
+    for dimension in dimensions:
+      segments[dimension] = {}
+    total_orders_value = 0
+
+    for uid in self.users:
+      user = self.users[uid]
+      orders_value = sum([user['orders'][d] for d in user['orders']
+                          if user['orders'][d] and d > prediction_date])
+      total_orders_value += orders_value
+      for dimension in user['dimensions']:
+        segment = user['dimensions'][dimension]
+        if segment not in segments[dimension]:
+          segments[dimension][segment] = {
+              'users_count': 1,
+              'orders_value': orders_value,
+              'average_orders_value': orders_value}
+        else:
+          segments[dimension][segment]['users_count'] += 1
+          segments[dimension][segment]['orders_value'] += orders_value
+          segments[dimension][segment]['average_orders_value'] = (
+              segments[dimension][segment]['orders_value'] /
+              segments[dimension][segment]['users_count'])
+    logging.info("segments = %s" % pprint.pformat(segments))
+
+    total_average_orders_value = total_orders_value / len(self.users)
+    logging.info("total_orders_value = %f" % total_orders_value)
+    logging.info("total_average_orders_value = %f" % total_average_orders_value)
+
+    dimsegs = []
+    for dimension in segments:
+      segs = []
+      for segment in segments[dimension]:
+        segs.append((dimension, segment))
+        segments[dimension][segment]['ratio'] = (
+            segments[dimension][segment]['average_orders_value'] /
+            total_average_orders_value)
+      dimsegs.append(segs)
+
+    self.ratios = {}
+    for micro_segment in itertools.product(*dimsegs):
+      ms_dict = dict((k, v) for k, v in micro_segment)
+      segs = [ms_dict[d] for d in self.RFM_DIMENSIONS]
+      if reduce(mul, segs, 1) == 0 and sum(segs) != 0:
+        continue
+      self.ratios[micro_segment] = 1
+      for dimseg in micro_segment:
+        self.ratios[micro_segment] *= segments[dimseg[0]][dimseg[1]]['ratio']
+
+
+  def save_ratios(self):
+    filename = self.conf['output_path'] + '/'
+    filename += self.conf['advertiser_key'] + '_ratios.csv'
+    with open(filename, 'wb') as f:
+      writer = csv.writer(f)
+      dimensions = sorted(self.users.itervalues().next()['dimensions'].keys())
+      head = dimensions + ['bid ratio']
+      writer.writerow(head)
+      for micro_segment in self.ratios:
+        segments = [ds[1] for ds in sorted(micro_segment)]
+        writer.writerow(segments + [self.ratios[micro_segment]])
+
+
+  def save_output(self):
+    """Processes data in users dict and saves result to two output files.
+    """
+    self.rfmize()
+    self.save_mapping()
+    logging.info("borders = %s" % pprint.pformat(self.borders))
+    self.rationize()
+    self.save_ratios()
+
+
+def main():
+  # Teaching Python to use UTF-8 by default.
+  reload(sys)
+  sys.setdefaultencoding('utf8')
+
+  # Command line arguments parsing.
+  parser = argparse.ArgumentParser()
+  parser.add_argument('config-file', help='configuration file')
+  parser.add_argument('input-file', help='input data file')
+  parser.add_argument('--log-level',
+                      help='logging level, defaults to WARNING',
+                      default='WARNING')
+  args = vars(parser.parse_args())
+
+  # Setup logging.
+  log_level = getattr(logging, args['log_level'].upper(), None)
+  logging.basicConfig(format="%(asctime)s %(levelname)s: %(message)s",
+                      datefmt="%Y-%m-%d %H:%M:%S",
+                      level=log_level)
+
+  # Load configuration settings.
+  conf = load_config(args['config-file'])
+
+  # Instantiate Rfmizer with loaded configuration settings.
+  rfmizer = Rfmizer(conf)
+  # Load input data from input file to Rfmizer instance.
+  rfmizer.load_input(args['input-file'])
+  # Rfmize input data and save results to output files.
+  rfmizer.save_output()
+
+
+if __name__ == "__main__":
+  # Launch the main function.
+  main()
