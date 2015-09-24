@@ -21,7 +21,7 @@ pip install --user pyyaml
 ## Использование
 
 ```
-rfmizer.py [--log-level LOG_LEVEL] config-file input-file
+python rfmizer.py [--log-level LOG_LEVEL] config-file input-file
 ```
 
 Обязательные аргументы:
@@ -38,11 +38,7 @@ rfmizer.py [--log-level LOG_LEVEL] config-file input-file
   - `INFO`;
   - `DEBUG`. 
   
-```
-rfmizer.py -h
-```
-
-Отображает подсказку по использованию:
+`python rfmizer.py -h` отображает подсказку по использованию:
 
 ```
 usage: rfmizer.py [-h] [--log-level LOG_LEVEL] config-file input-file
@@ -55,6 +51,14 @@ optional arguments:
   -h, --help            show this help message and exit
   --log-level LOG_LEVEL
                         logging level, defaults to WARNING
+```
+
+Примеры:
+
+```
+python rfmizer.py config.yaml orders.csv
+python rfmizer.py --log=INFO config.yaml orders.csv
+python rfmizer.py -h
 ```
 
 
