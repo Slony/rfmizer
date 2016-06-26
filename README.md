@@ -122,7 +122,7 @@ rfmizer:
     recency: ga:dimension2
     frequency: ga:dimension3
     monetary: ga:dimension4
-    geo: ga:dimension5
+    geo_code: ga:dimension5
 predictor:
   prediction_period: 182
 output_path: .
