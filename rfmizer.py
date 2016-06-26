@@ -11,7 +11,8 @@ Usage example:
   python rfmizer.py config.yaml
 """
 
-__author__ = 'lebani@google.com (Lado Lebanidze), aprikhodko@google.com (Alexander Prikhodko)'
+
+__author__ = 'aprikhodko@google.com (Alexander Prikhodko)'
 
 
 import argparse
@@ -20,6 +21,7 @@ import datetime
 import itertools
 import logging
 from operator import mul
+import os
 import pprint
 import re
 import sys
@@ -51,16 +53,16 @@ def parse_date(s):
   Returns:
     Date instance or None if string can't be parsed.
   """
-  pattern = r'(\d{4})(\D)(\d\d)(\D)(\d\d)|(\d\d)(\D)(\d\d)(\D)(\d{4})'
+  pattern = r'(\d{4})\D(\d\d)\D(\d\d)|(\d\d)\D(\d\d)\D(\d{4})'
   match = re.search(pattern, s)
   if not match:
     return None
   else:
     groups = match.groups()
   if groups[0] != None:
-    date_str = "%s-%s-%s" % (groups[0], groups[2], groups[4])
+    date_str = "%s-%s-%s" % (groups[0], groups[1], groups[2])
   else:
-    date_str = "%s-%s-%s" % (groups[9], groups[7], groups[5])
+    date_str = "%s-%s-%s" % (groups[5], groups[4], groups[3])
 
   return datetime.datetime.strptime(date_str, "%Y-%m-%d")
 
@@ -79,7 +81,7 @@ def parse_value(s):
   if not match:
     return None
   else:
-    value_str = match.group()
+    value_str = match.group().replace(',', '.')
 
   return float(value_str)
 
@@ -257,9 +259,10 @@ class Rfmizer(object):
 
 
   def save_mapping(self):
+    """Writes user IDs to segments mapping to an output file."""
     columns = self.conf['rfmizer']['output_columns']
-    filename = self.conf['output_path'] + '/'
-    filename += self.conf['advertiser_key'] + '_mapping.csv'
+    filename = os.path.join(self.conf['output_path'],
+                            '%s_mapping.csv' % self.conf['advertiser_key'])
     with open(filename, 'wb') as f:
       writer = csv.writer(f)
       dimensions = sorted(self.users.itervalues().next()['dimensions'].keys())
@@ -272,6 +275,7 @@ class Rfmizer(object):
 
 
   def rationize(self):
+    """Calculates bid ratios for all micro segments."""
     prediction_date = self.max_date - self.prediction_delta
     self.rfmize(prediction_date)
 
@@ -327,8 +331,9 @@ class Rfmizer(object):
 
 
   def save_ratios(self):
-    filename = self.conf['output_path'] + '/'
-    filename += self.conf['advertiser_key'] + '_ratios.csv'
+    """Writes micro segments to bid ratios mapping to an output file."""
+    filename = os.path.join(self.conf['output_path'],
+                            '%s_ratios.csv' % self.conf['advertiser_key'])
     with open(filename, 'wb') as f:
       writer = csv.writer(f)
       dimensions = sorted(self.users.itervalues().next()['dimensions'].keys())
@@ -340,8 +345,7 @@ class Rfmizer(object):
 
 
   def save_output(self):
-    """Processes data in users dict and saves result to two output files.
-    """
+    """Processes data in users dict and saves result to two output files."""
     self.rfmize()
     self.save_mapping()
     logging.info("borders = %s" % pprint.pformat(self.borders))
@@ -350,6 +354,7 @@ class Rfmizer(object):
 
 
 def main():
+  """RFMizer's main function."""
   # Teaching Python to use UTF-8 by default.
   reload(sys)
   sys.setdefaultencoding('utf8')
