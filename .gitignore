@@ -61,3 +61,5 @@ target/
 *.csv
 *.swp
 
+# TOC generator
+gh-md-toc
