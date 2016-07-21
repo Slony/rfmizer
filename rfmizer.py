@@ -262,7 +262,7 @@ class Rfmizer(object):
     """Writes user IDs to segments mapping to an output file."""
     columns = self.conf['rfmizer']['output_columns']
     filename = os.path.join(self.conf['output_path'],
-                            '%s_mapping.csv' % self.conf['advertiser_key'])
+                            '%s_mapping.csv' % self.conf['output_file_prefix'])
     with open(filename, 'wb') as f:
       writer = csv.writer(f)
       dimensions = sorted(self.users.itervalues().next()['dimensions'].keys())
@@ -333,7 +333,7 @@ class Rfmizer(object):
   def save_ratios(self):
     """Writes micro segments to bid ratios mapping to an output file."""
     filename = os.path.join(self.conf['output_path'],
-                            '%s_ratios.csv' % self.conf['advertiser_key'])
+                            '%s_ratios.csv' % self.conf['output_file_prefix'])
     with open(filename, 'wb') as f:
       writer = csv.writer(f)
       dimensions = sorted(self.users.itervalues().next()['dimensions'].keys())

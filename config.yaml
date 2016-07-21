@@ -1,4 +1,3 @@
-advertiser_key: company_name_here
 input_columns:
   - order_date
   - user_id
@@ -18,4 +17,4 @@ predictor:
   prediction_period: 182 # lookback window for RFMestimator (number of days)
 average_for_only_zero_orders: no # Consider users with only zero-valued orders as having average order value
 output_path: .
-log_path: .
+output_file_prefix: some_unique_name

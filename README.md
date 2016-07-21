@@ -204,6 +204,7 @@ rfmizer:
 predictor:
   prediction_period: 182
 output_path: .
+output_file_prefix: some_unique_name
 ```
 
 RFMizer configuration options description:
@@ -218,4 +219,4 @@ RFMizer configuration options description:
 | `rfmizer` | `output_columns` | Dictionary that maps dimension names to column names in output file with user ID to segments mapping. Mapping for `user_id`, `recency`, `frequency`, `monetary`, and all additional dimensions **must** be specified. |
 | `predictor` | `prediction_period` | Duration of time span used to retrospectively predict expected value of each segment of users. Specified as number of days. |
 | | `output_path` | Directory path to save output files to. |
-
+| | `output_file_prefix` | Unique string for output filenames to start with. Can be used to distinguish output files generated with different configuration files. |
