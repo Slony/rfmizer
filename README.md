@@ -117,6 +117,30 @@ recency,frequency,monetary,geo,bid_ratio
 ```
 
 
+### RFM segments' borders
+
+It's a plain text CSV file with metrics' values of borders between segments of
+frequency, monetary, and recency dimensions.
+
+Example:
+
+```
+dimension,segment,border
+frequency,1,2
+frequency,2,3
+frequency,3,4
+frequency,4,6
+monetary,1,23.7
+monetary,2,35.95
+monetary,3,51.0
+monetary,4,82.0
+recency,1,-252
+recency,2,-192
+recency,3,-137
+recency,4,-80
+```
+
+
 ## System requirements
 
 - Python 2.7
