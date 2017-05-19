@@ -143,7 +143,7 @@ recency,4,-80
 
 ## System requirements
 
-- Python 2.7
+- Python 2.7 or Python 3.5
 - `pyyaml` installed
 
 Use [pip](https://pip.pypa.io/en/stable/installing/) to install `pyyaml`:

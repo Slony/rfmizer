@@ -16,8 +16,11 @@ __author__ = 'aprikhodko@google.com (Alexander Prikhodko)'
 
 
 import argparse
+from builtins import range
+from builtins import dict
 import csv
 import datetime
+from functools import reduce
 import itertools
 import logging
 from operator import mul
@@ -109,8 +112,8 @@ class Rfmizer(object):
     Args:
       filename: name of the file with input data in CSV format.
     """
-    self.users = {}
-    with open(filename, 'rb') as csv_file:
+    self.users = dict()
+    with open(filename, 'r') as csv_file:
       rows = csv.reader(csv_file)
       for row in rows:
         order = {}
@@ -207,14 +210,13 @@ class Rfmizer(object):
         user['dimensions'][dimension] = 0
       else:
         uids.append(uid)
-    uids.sort(cmp=lambda u1, u2: cmp(self.users[u1]['metrics'][dimension],
-                                     self.users[u2]['metrics'][dimension]))
+    uids.sort(key=lambda uid: self.users[uid]['metrics'][dimension])
     segment = 1
     uids_count = len(uids)
     if not by_borders:
       max_i = uids_count / segments_count
       current_metric = self.users[uids[0]]['metrics'][dimension]
-    for i in xrange(0, uids_count):
+    for i in range(0, uids_count):
       user = self.users[uids[i]]
       metric = user['metrics'][dimension]
       if by_borders:
@@ -248,21 +250,21 @@ class Rfmizer(object):
     columns = self.conf['rfmizer']['output_columns']
     filename = os.path.join(self.conf['output_path'],
                             '%s_mapping.csv' % self.conf['output_file_prefix'])
-    with open(filename, 'wb') as f:
+    with open(filename, 'w') as f:
       writer = csv.writer(f)
-      dimensions = sorted(self.users.itervalues().next()['dimensions'].keys())
+      dimensions = sorted(next(iter(self.users.values()))['dimensions'].keys())
       head = [columns['user_id']] + [columns[d] for d in dimensions]
       writer.writerow(head)
       for uid in self.users:
         user = self.users[uid]
-        segments = [ds[1] for ds in sorted(user['dimensions'].iteritems())]
+        segments = [ds[1] for ds in sorted(user['dimensions'].items())]
         writer.writerow([uid] + segments)
 
   def save_borders(self):
     """Writes RFM segmets' borders to an output file."""
     filename = os.path.join(self.conf['output_path'],
                             '%s_borders.csv' % self.conf['output_file_prefix'])
-    with open(filename, 'wb') as f:
+    with open(filename, 'w') as f:
       writer = csv.writer(f)
       writer.writerow(['dimension', 'segment', 'border'])
       for dimension in sorted(self.borders):
@@ -274,7 +276,7 @@ class Rfmizer(object):
     """Calculates bid ratios for all micro segments."""
     prediction_date = self.max_date - self.prediction_delta
     self.rfmize(prediction_date)
-    dimensions = self.users.itervalues().next()['dimensions']
+    dimensions = next(iter(self.users.values()))['dimensions']
     segments = {}
     for dimension in dimensions:
       segments[dimension] = {}
@@ -324,9 +326,9 @@ class Rfmizer(object):
     """Writes micro segments to bid ratios mapping to an output file."""
     filename = os.path.join(self.conf['output_path'],
                             '%s_ratios.csv' % self.conf['output_file_prefix'])
-    with open(filename, 'wb') as f:
+    with open(filename, 'w') as f:
       writer = csv.writer(f)
-      dimensions = sorted(self.users.itervalues().next()['dimensions'].keys())
+      dimensions = sorted(next(iter(self.users.values()))['dimensions'].keys())
       head = dimensions + ['bid ratio']
       writer.writerow(head)
       for micro_segment in self.ratios:
@@ -345,9 +347,10 @@ class Rfmizer(object):
 
 def main():
   """RFMizer's main function."""
-  # Teaching Python to use UTF-8 by default.
-  reload(sys)
-  sys.setdefaultencoding('utf8')
+  # Teaching Python2 to use UTF-8 by default.
+  if sys.version[0] == '2':
+    reload(sys)
+    sys.setdefaultencoding('utf8')
   # Command line arguments parsing.
   parser = argparse.ArgumentParser()
   parser.add_argument('config-file', help='configuration file')
