@@ -12,6 +12,7 @@ Table of Contents (created by [gh-md-toc](https://github.com/ekalinin/github-mar
     * [RFMizer output files](#rfmizer-output-files)
       * [User ID to RFMxyz mapping](#user-id-to-rfmxyz-mapping)
       * [RFMxyz to bid multipliers mapping](#rfmxyz-to-bid-multipliers-mapping)
+      * [RFM segments' borders](#rfm-segments-borders)
     * [System requirements](#system-requirements)
     * [Using RFMizer](#using-rfmizer)
     * [Configuration file](#configuration-file)
