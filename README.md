@@ -146,17 +146,18 @@ recency,4,-80
 
 - Python 2.7 or Python 3.5
 - `pyyaml` installed
+- `future` installed
 
 Use [pip](https://pip.pypa.io/en/stable/installing/) to install `pyyaml`:
 
 ```
-sudo pip install --user pyyaml
+sudo pip install --user pyyaml future
 ```
 
 or
 
 ```
-pip install --user pyyaml
+pip install --user pyyaml future
 ```
 
 
