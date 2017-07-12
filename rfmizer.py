@@ -55,7 +55,7 @@ def parse_date(s):
   Returns:
     Date instance or None if string can't be parsed.
   """
-  pattern = r'(\d{4})\D(\d\d)\D(\d\d)|(\d\d)\D(\d\d)\D(\d{4})'
+  pattern = r'(\d{4})\D(\d\d?)\D(\d\d?)|(\d\d?)\D(\d\d?)\D(\d{4})'
   match = re.search(pattern, s)
   if not match:
     return None
