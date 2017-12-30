@@ -15,6 +15,5 @@ rfmizer:
     monetary: ga:dimension4
 predictor:
   prediction_period: 182 # lookback window for RFMestimator (number of days)
-average_for_only_zero_orders: no # Consider users with only zero-valued orders as having average order value
 output_path: .
 output_file_prefix: some_unique_name

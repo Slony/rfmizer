@@ -1,10 +1,12 @@
 #!/usr/bin/env python
 # -*- coding: UTF-8 -*-
-# Copyright 2016-2017 Google Inc. All Rights Reserved.
+# Copyright 2016-2018 Google Inc. All Rights Reserved.
 
 """RFM segmentation and prediction tool.
 
-TODO: Detailed description.
+RFMizer is a Python script that takes a complete log of users' orders exported
+from CRM system and outputs user ID to RFMxyz segments mapping and RFMxyz
+segments to bid multipliers mapping.
 
 Usage example:
 
@@ -23,8 +25,8 @@ import os
 import pprint
 import re
 import sys
-from builtins import dict
-from builtins import range
+from builtins import dict  # pylint: disable=redefined-builtin
+from builtins import range  # pylint: disable=redefined-builtin
 import yaml
 
 
