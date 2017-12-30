@@ -16,18 +16,15 @@ __author__ = 'aprikhodko@google.com (Alexander Prikhodko)'
 
 
 import argparse
-from builtins import range
-from builtins import dict
 import csv
 import datetime
-from functools import reduce
-import itertools
 import logging
-from operator import mul
 import os
 import pprint
 import re
 import sys
+from builtins import dict
+from builtins import range
 import yaml
 
 
@@ -40,9 +37,9 @@ def load_config(filename):
   Returns:
     Dict with configuration settings values.
   """
-  with open(filename, "r") as f:
+  with open(filename, 'r') as f:
     conf = yaml.load(f)
-  logging.info("conf = %s", pprint.pformat(conf))
+  logging.info('conf = %s', pprint.pformat(conf))
   return conf
 
 
@@ -61,11 +58,11 @@ def parse_date(s):
     return None
   else:
     groups = match.groups()
-  if groups[0] != None:
-    date_str = "%s-%s-%s" % (groups[0], groups[1], groups[2])
+  if groups[0] is not None:
+    date_str = '%s-%s-%s' % (groups[0], groups[1], groups[2])
   else:
-    date_str = "%s-%s-%s" % (groups[5], groups[4], groups[3])
-  return datetime.datetime.strptime(date_str, "%Y-%m-%d")
+    date_str = '%s-%s-%s' % (groups[5], groups[4], groups[3])
+  return datetime.datetime.strptime(date_str, '%Y-%m-%d')
 
 
 def parse_value(s):
@@ -144,7 +141,7 @@ class Rfmizer(object):
           self.users[user_id]['dimensions'] = dimensions
         if order_date > self.max_date:
           self.max_date = order_date
-    logging.info("max_date = %s", self.max_date.strftime('%Y-%m-%d'))
+    logging.info('max_date = %s', self.max_date.strftime('%Y-%m-%d'))
 
   def metricize(self, today):
     """Fills users dict elements with calculated RFM values.
@@ -176,7 +173,7 @@ class Rfmizer(object):
           user['metrics'] = {'recency': 'stale', 'frequency': 'stale',
                              'monetary': 'stale'}
         continue
-      non_zero_orders = [o for o in orders if o != None]
+      non_zero_orders = [o for o in orders if o is not None]
       non_zero_orders_count = len(non_zero_orders)
       non_zero_orders_sum = sum(non_zero_orders)
       if non_zero_orders_count > 0:
@@ -215,7 +212,7 @@ class Rfmizer(object):
     uids_count = len(uids)
     if not by_borders:
       max_i = uids_count / segments_count
-      current_metric = self.users[uids[0]]['metrics'][dimension]
+      prev_metric = self.users[uids[0]]['metrics'][dimension]
     for i in range(0, uids_count):
       user = self.users[uids[i]]
       metric = user['metrics'][dimension]
@@ -224,11 +221,11 @@ class Rfmizer(object):
           if metric >= self.borders[dimension][segment]:
             segment += 1
       else:
-        if i >= max_i and metric != current_metric:
+        if i >= max_i and metric != prev_metric:
           self.borders[dimension][segment] = metric
           segment += 1
           max_i = i + (uids_count - i) / (segments_count - segment + 1)
-          current_metric = metric
+      prev_metric = metric
       user['dimensions'][dimension] = segment
 
   def rfmize(self, today=None):
@@ -276,51 +273,31 @@ class Rfmizer(object):
     """Calculates bid ratios for all micro segments."""
     prediction_date = self.max_date - self.prediction_delta
     self.rfmize(prediction_date)
-    dimensions = next(iter(self.users.values()))['dimensions']
     segments = {}
-    for dimension in dimensions:
-      segments[dimension] = {}
     total_orders_value = 0
     for uid in self.users:
       user = self.users[uid]
+      segment = tuple(sorted(user['dimensions'].items()))
       orders_value = sum([user['orders'][d] for d in user['orders']
                           if user['orders'][d] and d > prediction_date])
       total_orders_value += orders_value
-      for dimension in user['dimensions']:
-        segment = user['dimensions'][dimension]
-        if segment not in segments[dimension]:
-          segments[dimension][segment] = {
-              'users_count': 1,
-              'orders_value': orders_value,
-              'average_orders_value': orders_value}
-        else:
-          segments[dimension][segment]['users_count'] += 1
-          segments[dimension][segment]['orders_value'] += orders_value
-          segments[dimension][segment]['average_orders_value'] = (
-              segments[dimension][segment]['orders_value'] /
-              segments[dimension][segment]['users_count'])
-    logging.info("segments = %s", pprint.pformat(segments))
+      if segment not in segments:
+        segments[segment] = {
+            'users_count': 1,
+            'orders_value': orders_value}
+      else:
+        segments[segment]['users_count'] += 1
+        segments[segment]['orders_value'] += orders_value
     total_average_orders_value = total_orders_value / len(self.users)
-    logging.info("total_orders_value = %f", total_orders_value)
-    logging.info("total_average_orders_value = %f", total_average_orders_value)
-    dimsegs = []
-    for dimension in segments:
-      segs = []
-      for segment in segments[dimension]:
-        segs.append((dimension, segment))
-        segments[dimension][segment]['ratio'] = (
-            segments[dimension][segment]['average_orders_value'] /
-            total_average_orders_value)
-      dimsegs.append(segs)
     self.ratios = {}
-    for micro_segment in itertools.product(*dimsegs):
-      ms_dict = dict((k, v) for k, v in micro_segment)
-      segs = [ms_dict[d] for d in self.RFM_DIMENSIONS]
-      if reduce(mul, segs, 1) == 0 and sum(segs) != 0:
-        continue
-      self.ratios[micro_segment] = 1
-      for dimseg in micro_segment:
-        self.ratios[micro_segment] *= segments[dimseg[0]][dimseg[1]]['ratio']
+    for segment in segments:
+      self.ratios[segment] = (
+          segments[segment]['orders_value'] /
+          segments[segment]['users_count'] /
+          total_average_orders_value)
+    logging.info('segments = %s', pprint.pformat(segments))
+    logging.info('total_orders_value = %f', total_orders_value)
+    logging.info('total_average_orders_value = %f', total_average_orders_value)
 
   def save_ratios(self):
     """Writes micro segments to bid ratios mapping to an output file."""
@@ -332,7 +309,7 @@ class Rfmizer(object):
       head = dimensions + ['bid ratio']
       writer.writerow(head)
       for micro_segment in self.ratios:
-        segments = [ds[1] for ds in sorted(micro_segment)]
+        segments = [ds[1] for ds in micro_segment]
         writer.writerow(segments + [self.ratios[micro_segment]])
 
   def save_output(self):
@@ -340,7 +317,7 @@ class Rfmizer(object):
     self.rfmize()
     self.save_mapping()
     self.save_borders()
-    logging.info("borders = %s", pprint.pformat(self.borders))
+    logging.info('borders = %s', pprint.pformat(self.borders))
     self.rationize()
     self.save_ratios()
 
@@ -361,8 +338,8 @@ def main():
   args = vars(parser.parse_args())
   # Setup logging.
   log_level = getattr(logging, args['log_level'].upper(), None)
-  logging.basicConfig(format="%(asctime)s %(levelname)s: %(message)s",
-                      datefmt="%Y-%m-%d %H:%M:%S",
+  logging.basicConfig(format='%(asctime)s %(levelname)s: %(message)s',
+                      datefmt='%Y-%m-%d %H:%M:%S',
                       level=log_level)
   # Load configuration settings.
   conf = load_config(args['config-file'])
@@ -374,6 +351,6 @@ def main():
   rfmizer.save_output()
 
 
-if __name__ == "__main__":
+if __name__ == '__main__':
   # Launch the main function.
   main()
