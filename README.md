@@ -148,7 +148,8 @@ recency,4,-80
 - `pyyaml` installed
 - `future` installed
 
-Use [pip](https://pip.pypa.io/en/stable/installing/) to install `pyyaml`:
+You can use [pip](https://pip.pypa.io/en/stable/installing/) to install `pyyaml` and
+`future`:
 
 ```
 sudo pip install --user pyyaml future
