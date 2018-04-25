@@ -223,11 +223,11 @@ segments_count:
 rfmizer:
   look_back_period: 365
   output_columns:
-    user_id: ga:dimension1
-    recency: ga:dimension2
-    frequency: ga:dimension3
-    monetary: ga:dimension4
-    geo_code: ga:dimension5
+    user_id: user_id
+    recency: recency
+    frequency: frequency
+    monetary: monetary
+    geo_code: geo_code
 predictor:
   prediction_period: 182
 output_path: .
