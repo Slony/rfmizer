@@ -9,10 +9,10 @@ segments_count:
 rfmizer:
   look_back_period: 365 # earliest date for RFMizer (number of days)
   output_columns:
-    user_id: ga:dimension1
-    recency: ga:dimension2
-    frequency: ga:dimension3
-    monetary: ga:dimension4
+    user_id: user_id
+    recency: recency
+    frequency: frequency
+    monetary: monetary
 predictor:
   prediction_period: 182 # lookback window for RFMestimator (number of days)
 output_path: .
